@@ -65,6 +65,12 @@ class Relation (Object):
     def print(self):
         return super().print()
 
+class BrokenRelation (Object):
+    def __init__(self, attributes):
+        super().__init__(attributes)
+
+    def print(self):
+        return super().print()
 
 class Element (Object):
     def __init__(self,attributes):
@@ -117,6 +123,8 @@ def load_from_xml(filename):
     xml = open(filename).read()
     components = {}
     relations = []
+    broken_relations = []
+
     xml_document = ET.ElementTree(ET.fromstring(xml))
     diagram_element = xml_document.find("diagram")
 
@@ -139,14 +147,26 @@ def load_from_xml(filename):
                             source = mx_cell.attrib['source']
                             target = mx_cell.attrib['target']
                             relations.append(Relation(source, target,d.attrib))
+                        else:
+                            broken_relations.append(BrokenRelation(d.attrib))
+                    else:
+                        broken_relations.append(BrokenRelation(d.attrib))
                 else:
                     comp = Element(d.attrib)
                     components[comp.id] = comp
                 
     print(f"Components:{len(components)}")                
     print(f"Relations: {len(relations)}")
+    print(f"Broken Relations: {len(broken_relations)}")
 
-    return components, relations
+    return components, relations ,broken_relations
+
+# function that print broken relations
+def print_broken_relations(broken_relations,i):
+    for br in broken_relations:
+        print(f'{i}. Связь не имеет начала или конца "{br.c4Description}"')
+        i = i+1
+    return i
 
 # function that check relations
 def check_relations(components, relations,i):
@@ -183,6 +203,14 @@ def check_components(components, relations, i):
             if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
                 print(f'{i}. Компонент "{comp.c4Name}" не указана технология')
                 i = i + 1
+        if not [x for x in relations if x.target == comp.id]:
+            if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person':
+                print(f'{i}. Компонент "{comp.c4Name}" не имеет входных связей')
+                i = i + 1
+        if not [x for x in relations if x.source == comp.id]:
+            if comp.c4Type != 'SystemScopeBoundary':
+                print(f'{i}. Компонент "{comp.c4Name}" не имеет выходных связей')
+                i = i + 1
     return i
 
 def main(argv):
@@ -210,10 +238,11 @@ def main(argv):
 
 
     # load from xml (.drawio)
-    components, relations = load_from_xml(inputfile)
+    components, relations , broken_relations = load_from_xml(inputfile)
 
     # make checks
     i = 1
+    i = print_broken_relations(broken_relations,i)
     i = check_relations(components, relations, i)
     i = check_components(components, relations, i)
 
