@@ -203,13 +203,9 @@ def check_components(components, relations, i):
             if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
                 print(f'{i}. Компонент "{comp.c4Name}" не указана технология')
                 i = i + 1
-        if not [x for x in relations if x.target == comp.id]:
+        if not [x for x in relations if x.target == comp.id or x.source == comp.id]:
             if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person':
-                print(f'{i}. Компонент "{comp.c4Name}" не имеет входных связей')
-                i = i + 1
-        if not [x for x in relations if x.source == comp.id]:
-            if comp.c4Type != 'SystemScopeBoundary':
-                print(f'{i}. Компонент "{comp.c4Name}" не имеет выходных связей')
+                print(f'{i}. Компонент "{comp.c4Name}" не имеет входящиз и исходящих связей')
                 i = i + 1
     return i
 
