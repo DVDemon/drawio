@@ -45,6 +45,7 @@ def pako_inflate_raw(data):
 class Object:
     def __init__(self,attributes):
         self.id = None
+        setattr(self, 'c4Name', '')
         for key in attributes.keys():
             if key == 'id':
                 self.id = attributes[key]
@@ -155,8 +156,31 @@ def check_relations(components, relations,i):
         if rel.target not in components:
             print(f"Для связи {rel.c4Description} отсутствует конечный компонент")
         if 'c4Technology' in rel.__dict__:
-            if rel.c4Technology=='':
+            if rel.c4Technology=='' and components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
                 print(f'{i}. Для связи "{rel.c4Description}" между "{components[rel.source].c4Name}" и "{components[rel.target].c4Name}" не указана технология')
+                i = i + 1
+        if 'c4Description' in rel.__dict__:
+            m = re.search(r'\((.*)\)', rel.c4Description)
+            if m is None:
+                if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
+                    print(f'{i}. Для связи "{rel.c4Description}" между "{components[rel.source].c4Name}" и "{components[rel.target].c4Name}" не указаны входные данные')
+                    i = i + 1
+            m = re.search(r'\((.*)\):', rel.c4Description)
+            if m is None:
+                if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
+                    print(f'{i}. Для связи "{rel.c4Description}" между "{components[rel.source].c4Name}" и "{components[rel.target].c4Name}" не указаны возвращаемые данные')
+                    i = i + 1
+
+# function that checks components
+def check_components(components, relations, i):
+    for comp in components.values():
+        if 'c4Description' not in comp.__dict__:
+            if comp.c4Type != 'SystemScopeBoundary':
+                print(f'{i}. Компонент "{comp.c4Name}" не указано описание')
+                i = i + 1
+        if 'c4Technology' not in comp.__dict__:
+            if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
+                print(f'{i}. Компонент "{comp.c4Name}" не указана технология')
                 i = i + 1
 
 def main(argv):
@@ -189,6 +213,7 @@ def main(argv):
     # make checks
     i = 1
     check_relations(components, relations, i)
+    check_components(components, relations, i)
 
     # export to xls
     export_to_xls(outputfile,components,relations)
