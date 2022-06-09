@@ -170,7 +170,8 @@ def check_relations(components, relations,i):
                 if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
                     print(f'{i}. Для связи "{rel.c4Description}" между "{components[rel.source].c4Name}" и "{components[rel.target].c4Name}" не указаны возвращаемые данные')
                     i = i + 1
-
+    return i
+    
 # function that checks components
 def check_components(components, relations, i):
     for comp in components.values():
@@ -182,6 +183,7 @@ def check_components(components, relations, i):
             if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
                 print(f'{i}. Компонент "{comp.c4Name}" не указана технология')
                 i = i + 1
+    return i
 
 def main(argv):
     # parse args
@@ -212,8 +214,8 @@ def main(argv):
 
     # make checks
     i = 1
-    check_relations(components, relations, i)
-    check_components(components, relations, i)
+    i = check_relations(components, relations, i)
+    i = check_components(components, relations, i)
 
     # export to xls
     export_to_xls(outputfile,components,relations)
