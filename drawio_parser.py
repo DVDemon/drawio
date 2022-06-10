@@ -62,18 +62,27 @@ class Relation (Object):
         self.source = source
         self.target = target
 
+
     def print(self):
         return super().print()
 
 class BrokenRelation (Object):
     def __init__(self, attributes):
+        self.source_point = None
+        self.target_point = None
         super().__init__(attributes)
 
     def print(self):
+        if self.source_point is not None:
+            print(f'source point: {self.source_point[0]}, {self.source_point[1]}')
+        if self.target_point is not None:
+            print(f'target point: {self.target_point[0]}, {self.target_point[1]}')
         return super().print()
 
 class Element (Object):
     def __init__(self,attributes):
+        self.left_top = None
+        self.right_bottom = None
         super().__init__(attributes)
 
 # function that export to xls
@@ -82,37 +91,38 @@ def export_to_xls(outputfile,components,relations):
 
     worksheet_components = workbook.add_worksheet("Components")
     component_attribute_map = {}
+    i = 0
     for comp in components.values():
         for key in comp.__dict__.keys():
             if key not in component_attribute_map:
-                component_attribute_map[key] = 0
-    i = 0
-    for key in component_attribute_map.keys():
-        component_attribute_map[key] = i
-        worksheet_components.write(0,i,key)
-        i = i +1
+                if key not in ['left_top', 'right_bottom']:
+                    component_attribute_map[key] = i
+                    worksheet_components.write(0,i,key)
+                    i = i +1
 
     j = 1
     for component in components.values():
         for key in component.__dict__.keys():
-                worksheet_components.write(j,component_attribute_map[key],component.__dict__[key])
+                if key in component_attribute_map:
+                    worksheet_components.write(j,component_attribute_map[key],component.__dict__[key])
         j = j + 1
 
-    relation_attribute_map = {}
+
     worksheet_relations = workbook.add_worksheet("Relations")
+    relation_attribute_map = {}
+    i = 0
     for rel in relations:
         for key in rel.__dict__.keys():
             if key not in relation_attribute_map:
-                relation_attribute_map[key] = 0
-    i = 0
-    for key in relation_attribute_map.keys():
-        relation_attribute_map[key] = i
-        worksheet_relations.write(0,i,key)
-        i = i +1
+                if key not in ['source_point','target_point']:
+                    relation_attribute_map[key] = i
+                    worksheet_relations.write(0,i,key)
+                    i = i +1
 
     j = 1
     for rel in relations:
         for key in rel.__dict__.keys():
+            if key in relation_attribute_map:
                 worksheet_relations.write(j,relation_attribute_map[key],rel.__dict__[key])
         j = j + 1
 
@@ -131,11 +141,13 @@ def load_from_xml(filename):
     if not diagram_element is None:
         if list(diagram_element): # unencoded
             root_node =list(diagram_element)[0]
+            #print(ET.tostring(root_node))
         else: # encoded
             b64 = diagram_element.text
             a = base64.b64decode(b64)
             b = pako_inflate_raw(a)
             c = js_decode_uri_component(b.decode())
+            #print(c)
             root_node = ET.ElementTree(ET.fromstring(c))
 
         for d in root_node.iter('object'):
@@ -148,11 +160,27 @@ def load_from_xml(filename):
                             target = mx_cell.attrib['target']
                             relations.append(Relation(source, target,d.attrib))
                         else:
-                            broken_relations.append(BrokenRelation(d.attrib))
-                    else:
-                        broken_relations.append(BrokenRelation(d.attrib))
+                            broken_relation = BrokenRelation(d.attrib)
+                            geom = mx_cell.find('mxGeometry')
+                            if geom is not None:
+                                points = geom.findall('mxPoint')
+                                for p in points:
+                                    if 'as' in p.attrib:
+                                        if p.attrib['as'] == 'source' or p.attrib['as'] == 'sourcePoint':
+                                            broken_relation.source_point = [float(p.attrib['x']),float(p.attrib['y'])]
+                                        if p.attrib['as'] == 'target' or p.attrib['as'] == 'targetPoint':
+                                            broken_relation.target_point = [float(p.attrib['x']),float(p.attrib['y'])]
+                            broken_relations.append(broken_relation)
+                                
+
                 else:
                     comp = Element(d.attrib)
+                    mx_cell = d.find('mxCell')
+                    if(mx_cell is not None):
+                        geom = mx_cell.find('mxGeometry')
+                        if geom is not None:
+                            comp.left_top = [float(geom.attrib['x']),float(geom.attrib['y'])]
+                            comp.right_bottom = [float(geom.attrib['x']) + float(geom.attrib['width']),float(geom.attrib['y']) + float(geom.attrib['height'])]
                     components[comp.id] = comp
                 
     print(f"Components:{len(components)}")                
