@@ -202,9 +202,9 @@ def load_from_xml(filename):
                                 for p in points:
                                     if 'as' in p.attrib:
                                         if p.attrib['as'] == 'source' or p.attrib['as'] == 'sourcePoint':
-                                            broken_relation.source_point = [float(p.attrib['x']),float(p.attrib['y'])]
+                                            broken_relation.source_point = get_coordinates(geom.attrib)
                                         if p.attrib['as'] == 'target' or p.attrib['as'] == 'targetPoint':
-                                            broken_relation.target_point = [float(p.attrib['x']),float(p.attrib['y'])]
+                                            broken_relation.target_point = get_coordinates(geom.attrib)
                             if(not 'c4Description' in d.attrib):
                                 broken_relation.__setattr__('c4Description','')
                             if(not 'c4Name' in d.attrib):
