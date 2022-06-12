@@ -1,5 +1,6 @@
 # drawio decoder
 from select import select
+from tkinter import N
 import xml.etree.ElementTree as ET
 import re
 import base64
@@ -68,6 +69,8 @@ class Relation (Object):
 
 class BrokenRelation (Object):
     def __init__(self, attributes):
+        self.source = None
+        self.target = None
         self.source_point = None
         self.target_point = None
         super().__init__(attributes)
@@ -128,6 +131,17 @@ def export_to_xls(outputfile,components,relations):
 
     workbook.close()
 
+# helper function to get coordinates
+def get_coordinates(collection):
+    coordinates = []
+    coordinates.append(float(0))
+    coordinates.append(float(0))
+    if 'x' in collection.keys():
+        coordinates[0] = float(collection['x'])
+    if 'y' in collection.keys():
+        coordinates[1] = float(collection['y'])
+    return coordinates
+
 # function that load from xml (.drawio)
 def load_from_xml(filename):
     xml = open(filename).read()
@@ -150,17 +164,31 @@ def load_from_xml(filename):
             #print(c)
             root_node = ET.ElementTree(ET.fromstring(c))
 
-        for d in root_node.iter('object'):
+        for d in root_node.findall('root/object'):
             if 'c4Type' in d.attrib:
                 if d.attrib['c4Type'] == 'Relationship':
                     mx_cell = d.find('mxCell')
                     if(mx_cell is not None):
-                        if 'source' in mx_cell.attrib and 'target' in mx_cell.attrib:
+                        have_source = False
+                        have_target = False
+                        source = None
+                        target = None
+                        if 'source' in mx_cell.attrib:
                             source = mx_cell.attrib['source']
+                            have_source = True
+                        if 'target' in mx_cell.attrib:
                             target = mx_cell.attrib['target']
+                            have_target = True
+
+                        if have_source and have_target: 
                             relations.append(Relation(source, target,d.attrib))
                         else:
                             broken_relation = BrokenRelation(d.attrib)
+                            if have_source:
+                                broken_relation.source = source
+                            if have_target:
+                                broken_relation.target = target
+
                             geom = mx_cell.find('mxGeometry')
                             if geom is not None:
                                 points = geom.findall('mxPoint')
@@ -171,28 +199,70 @@ def load_from_xml(filename):
                                         if p.attrib['as'] == 'target' or p.attrib['as'] == 'targetPoint':
                                             broken_relation.target_point = [float(p.attrib['x']),float(p.attrib['y'])]
                             broken_relations.append(broken_relation)
-                                
-
                 else:
                     comp = Element(d.attrib)
                     mx_cell = d.find('mxCell')
                     if(mx_cell is not None):
                         geom = mx_cell.find('mxGeometry')
                         if geom is not None:
-                            comp.left_top = [float(geom.attrib['x']),float(geom.attrib['y'])]
-                            comp.right_bottom = [float(geom.attrib['x']) + float(geom.attrib['width']),float(geom.attrib['y']) + float(geom.attrib['height'])]
+                            comp.left_top = get_coordinates(geom.attrib)
+                            comp.right_bottom = [comp.left_top[0] + float(geom.attrib['width']),comp.left_top[1] + float(geom.attrib['height'])]
                     components[comp.id] = comp
-                
+        labels = {}
+        for d in root_node.findall('root/mxCell'):   
+            if 'style' in d.attrib:
+                if d.attrib['style'].find('edgeStyle=') != -1:
+                    broken_relation = BrokenRelation({})
+                    broken_relation.id = d.attrib['id']
+                    if 'source' in d.attrib:
+                        broken_relation.source = d.attrib['source']
+                    if 'target' in d.attrib:
+                        broken_relation.target = d.attrib['target']
+                    broken_relation.__setattr__('c4Name','')
+                    broken_relation.__setattr__('c4Type','Relationship')
+                    broken_relation.__setattr__('c4Technology','')
+                    broken_relation.__setattr__('c4Description','')
+                    broken_relations.append(broken_relation)
+
+            if 'style' in d.attrib:
+                if d.attrib['style'].find('edgeLabel') != -1:
+                    if( 'parent' in d.attrib) and ('value' in d.attrib):
+                            labels[d.attrib['parent']] = d.attrib['value']
+
+        for label in labels.keys():
+            parents = [x for x in broken_relations if x.id == label]
+            if len(parents) > 0:   
+                parents[0].c4Name = labels[label]
+                m = re.search(r'\[(.*)\]', labels[label])
+                if m:
+                    parents[0].c4Technology = m.group(1)
+
     print(f"Components:{len(components)}")                
     print(f"Relations: {len(relations)}")
     print(f"Broken Relations: {len(broken_relations)}")
 
     return components, relations ,broken_relations
 
+# fix broken relations
+def fix_broken_relations(components,relations,broken_relations):
+    for broken_relation in broken_relations:
+        if broken_relation.source is not None and broken_relation.target is not None:
+            relations.append(Relation(broken_relation.source,broken_relation.target,broken_relation.__dict__))
+
+    return broken_relations
 # function that print broken relations
 def print_broken_relations(broken_relations,i):
     for br in broken_relations:
-        print(f'{i}. Связь не имеет начала или конца "{br.c4Description}"')
+        print(f'{i}. Связь {br.id} "{br.c4Name}" не имеет начала или конца "{br.c4Description}"')
+        if br.source is not None:
+            print(f'Начало: {br.source}')
+        if br.target is not None:
+            print(f'Конец: {br.target}')
+        
+        if br.source_point is not None:
+            print(f'Начало: {br.source_point}')
+        if br.target_point is not None:
+            print(f'Конец: {br.target_point}')
         i = i+1
     return i
 
@@ -225,15 +295,15 @@ def check_components(components, relations, i):
     for comp in components.values():
         if 'c4Description' not in comp.__dict__:
             if comp.c4Type != 'SystemScopeBoundary':
-                print(f'{i}. Компонент "{comp.c4Name}" не указано описание')
+                print(f'{i}. {comp.c4Type} "{comp.c4Name}" не указано описание')
                 i = i + 1
         if 'c4Technology' not in comp.__dict__:
             if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
-                print(f'{i}. Компонент "{comp.c4Name}" не указана технология')
+                print(f'{i}. {comp.c4Type} "{comp.c4Name}" не указана технология')
                 i = i + 1
         if not [x for x in relations if x.target == comp.id or x.source == comp.id]:
             if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person':
-                print(f'{i}. Компонент "{comp.c4Name}" не имеет входящиз и исходящих связей')
+                print(f'{i}. {comp.c4Type} "{comp.c4Name}" не имеет входящих и исходящих связей')
                 i = i + 1
     return i
 
@@ -264,6 +334,8 @@ def main(argv):
     # load from xml (.drawio)
     components, relations , broken_relations = load_from_xml(inputfile)
 
+    # fix broken relations
+    broken_relations = fix_broken_relations(components, relations, broken_relations)
     # make checks
     i = 1
     i = print_broken_relations(broken_relations,i)
