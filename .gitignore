@@ -1,0 +1,6 @@
+*.xlsx
+xlsx/*
+diagrams/*
+*.xls
+*.drawio
+*.xml
