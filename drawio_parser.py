@@ -274,15 +274,22 @@ def fix_broken_relations(components,relations,broken_relations):
     i = 0
     for broken_relation in broken_relations:
         if broken_relation.source is None and broken_relation.source_point is not None:
+            candidats = {}
             for comp in components.values():
-                if comp.left_top[0] <= broken_relation.source_point[0] <= comp.right_bottom[0] and comp.left_top[1] <= broken_relation.source_point[1] <= comp.right_bottom[1]:                        
-                    broken_relation.source = comp.id                    
-                    break
+                if comp.left_top[0] <= broken_relation.source_point[0] <= comp.right_bottom[0] and comp.left_top[1] <= broken_relation.source_point[1] <= comp.right_bottom[1]:                                       
+                    candidats[(comp.right_bottom[0]-comp.left_top[0])*(comp.right_bottom[1]-comp.left_top[1])] = comp.id;                  
+                    
+            if len(candidats) > 0:
+                broken_relation.source = candidats[min(candidats.keys())]
+
         if broken_relation.target is None and broken_relation.target_point is not None:
+            candidats = {}
             for comp in components.values():
                 if comp.left_top[0] <= broken_relation.target_point[0] <= comp.right_bottom[0] and comp.left_top[1] <= broken_relation.target_point[1] <= comp.right_bottom[1]:
-                    broken_relation.target = comp.id
-                    break
+                    candidats[(comp.right_bottom[0]-comp.left_top[0])*(comp.right_bottom[1]-comp.left_top[1])] = comp.id;  
+                    
+            if len(candidats) > 0:
+                broken_relation.target = candidats[min(candidats.keys())]
 
         if broken_relation.source is not None and broken_relation.target is not None:
             i = i + 1
