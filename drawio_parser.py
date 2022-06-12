@@ -181,7 +181,14 @@ def load_from_xml(filename):
                             have_target = True
 
                         if have_source and have_target: 
-                            relations.append(Relation(source, target,d.attrib))
+                            rel = Relation(source, target,d.attrib)
+                            if not 'c4Description' in d.attrib:
+                                rel.__setattr__('c4Description','')
+                            if not 'c4Name' in d.attrib:
+                                rel.__setattr__('c4Name','')
+                            if not 'c4Technology' in d.attrib:
+                                rel.__setattr__('c4Technology','')       
+                            relations.append(rel)
                         else:
                             broken_relation = BrokenRelation(d.attrib)
                             if have_source:
@@ -198,6 +205,12 @@ def load_from_xml(filename):
                                             broken_relation.source_point = [float(p.attrib['x']),float(p.attrib['y'])]
                                         if p.attrib['as'] == 'target' or p.attrib['as'] == 'targetPoint':
                                             broken_relation.target_point = [float(p.attrib['x']),float(p.attrib['y'])]
+                            if(not 'c4Description' in d.attrib):
+                                broken_relation.__setattr__('c4Description','')
+                            if(not 'c4Name' in d.attrib):
+                                broken_relation.__setattr__('c4Name','')
+                            if(not 'c4Technology' in d.attrib):
+                                broken_relation.__setattr__('c4Technology','')
                             broken_relations.append(broken_relation)
                 else:
                     comp = Element(d.attrib)
@@ -232,7 +245,7 @@ def load_from_xml(filename):
         for label in labels.keys():
             parents = [x for x in broken_relations if x.id == label]
             if len(parents) > 0:   
-                parents[0].c4Name = labels[label]
+                parents[0].c4Description = labels[label]
                 m = re.search(r'\[(.*)\]', labels[label])
                 if m:
                     parents[0].c4Technology = m.group(1)
@@ -243,13 +256,43 @@ def load_from_xml(filename):
 
     return components, relations ,broken_relations
 
+# fix relationship that links to component that not in component list
+def fix_missing_relations(components,relations):
+    result_relations = []
+    for rel in relations:
+        if rel.source not in components.keys():
+            rel.source = None
+        if rel.target not in components.keys():
+            rel.target = None
+
+        if rel.source is not None and rel.target is not None:
+            result_relations.append(rel)
+    return result_relations
+
 # fix broken relations
 def fix_broken_relations(components,relations,broken_relations):
+    i = 0
     for broken_relation in broken_relations:
+        if broken_relation.source is None and broken_relation.source_point is not None:
+            for comp in components.values():
+                if comp.left_top[0] <= broken_relation.source_point[0] <= comp.right_bottom[0] and comp.left_top[1] <= broken_relation.source_point[1] <= comp.right_bottom[1]:                        
+                    broken_relation.source = comp.id                    
+                    break
+        if broken_relation.target is None and broken_relation.target_point is not None:
+            for comp in components.values():
+                if comp.left_top[0] <= broken_relation.target_point[0] <= comp.right_bottom[0] and comp.left_top[1] <= broken_relation.target_point[1] <= comp.right_bottom[1]:
+                    broken_relation.target = comp.id
+                    break
+
         if broken_relation.source is not None and broken_relation.target is not None:
+            i = i + 1
+            #print(broken_relation.__dict__)
             relations.append(Relation(broken_relation.source,broken_relation.target,broken_relation.__dict__))
 
-    return broken_relations
+                
+    print(f"Fixed broken relations: {i}")
+    return relations
+
 # function that print broken relations
 def print_broken_relations(broken_relations,i):
     for br in broken_relations:
@@ -294,15 +337,15 @@ def check_relations(components, relations,i):
 def check_components(components, relations, i):
     for comp in components.values():
         if 'c4Description' not in comp.__dict__:
-            if comp.c4Type != 'SystemScopeBoundary':
+            if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'ContainerScopeBoundary' and comp.c4Type != 'Person':
                 print(f'{i}. {comp.c4Type} "{comp.c4Name}" не указано описание')
                 i = i + 1
         if 'c4Technology' not in comp.__dict__:
-            if(comp.c4Type != 'Software System') and comp.c4Type != 'Person' and comp.c4Type != 'SystemScopeBoundary':
+            if(comp.c4Type != 'Software System') and (comp.c4Type != 'Person') and (comp.c4Type != 'SystemScopeBoundary') and (comp.c4Type != 'ContainerScopeBoundary'):
                 print(f'{i}. {comp.c4Type} "{comp.c4Name}" не указана технология')
                 i = i + 1
         if not [x for x in relations if x.target == comp.id or x.source == comp.id]:
-            if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person':
+            if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person' and comp.c4Type != 'ContainerScopeBoundary':
                 print(f'{i}. {comp.c4Type} "{comp.c4Name}" не имеет входящих и исходящих связей')
                 i = i + 1
     return i
@@ -335,10 +378,11 @@ def main(argv):
     components, relations , broken_relations = load_from_xml(inputfile)
 
     # fix broken relations
-    broken_relations = fix_broken_relations(components, relations, broken_relations)
+    relations = fix_broken_relations(components, relations, broken_relations)
+    relations = fix_missing_relations(components, relations)
     # make checks
     i = 1
-    i = print_broken_relations(broken_relations,i)
+    #i = print_broken_relations(broken_relations,i)
     i = check_relations(components, relations, i)
     i = check_components(components, relations, i)
 
