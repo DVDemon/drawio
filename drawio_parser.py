@@ -275,7 +275,7 @@ def load_from_xml(filename):
 
     return components, relations ,broken_relations
 
-# fix relationship that links to component that not in component list
+# remove relationship that links to component that not in component list
 def fix_missing_relations(components,relations):
     result_relations = []
     for rel in relations:
@@ -428,11 +428,13 @@ def main(argv):
     # load from xml (.drawio)
     components, relations , broken_relations = load_from_xml(inputfile)
 
-    #fill parent relations
+    # fill parent relations
     components = fill_parent_id(components)
 
     # fix broken relations
     relations = fix_broken_relations(components, relations, broken_relations)
+
+
     relations = fix_missing_relations(components, relations)
     # make checks
     i = 1
