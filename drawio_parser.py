@@ -176,6 +176,7 @@ def load_from_xml(filename):
 
         for d in root_node.findall('root/object'):
             if 'c4Type' in d.attrib:
+                # parse c4 relations
                 if d.attrib['c4Type'] == 'Relationship':
                     mx_cell = d.find('mxCell')
                     if(mx_cell is not None):
@@ -200,12 +201,14 @@ def load_from_xml(filename):
                                 rel.__setattr__('c4Technology','')       
                             relations.append(rel)
                         else:
+                            # case then component have no source or target
                             broken_relation = BrokenRelation(d.attrib)
                             if have_source:
                                 broken_relation.source = source
                             if have_target:
                                 broken_relation.target = target
 
+                            # try to get infoermation of source and target point from relations
                             geom = mx_cell.find('mxGeometry')
                             if geom is not None:
                                 points = geom.findall('mxPoint')
@@ -223,6 +226,7 @@ def load_from_xml(filename):
                                 broken_relation.__setattr__('c4Technology','')
                             broken_relations.append(broken_relation)
                 else:
+                    # parse c4 components
                     comp = Element(d.attrib)
                     mx_cell = d.find('mxCell')
                     if(mx_cell is not None):
@@ -231,9 +235,12 @@ def load_from_xml(filename):
                             comp.left_top = get_coordinates(geom.attrib)
                             comp.right_bottom = [comp.left_top[0] + float(geom.attrib['width']),comp.left_top[1] + float(geom.attrib['height'])]
                     components[comp.id] = comp
+
+        # parse labels and edges for non-c4 relations            
         labels = {}
         for d in root_node.findall('root/mxCell'):   
             if 'style' in d.attrib:
+                # parse edge
                 if d.attrib['style'].find('edgeStyle=') != -1:
                     broken_relation = BrokenRelation({})
                     broken_relation.id = d.attrib['id']
@@ -246,12 +253,14 @@ def load_from_xml(filename):
                     broken_relation.__setattr__('c4Technology','')
                     broken_relation.__setattr__('c4Description','')
                     broken_relations.append(broken_relation)
-
+            
+            # parse label
             if 'style' in d.attrib:
                 if d.attrib['style'].find('edgeLabel') != -1:
                     if( 'parent' in d.attrib) and ('value' in d.attrib):
                             labels[d.attrib['parent']] = d.attrib['value']
 
+        # parse technology from non c4-relations labels
         for label in labels.keys():
             parents = [x for x in broken_relations if x.id == label]
             if len(parents) > 0:   
