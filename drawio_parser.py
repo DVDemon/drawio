@@ -86,7 +86,17 @@ class Element (Object):
     def __init__(self,attributes):
         self.left_top = None
         self.right_bottom = None
+        self.parent_id = None
         super().__init__(attributes)
+
+    def is_element_inside(self,parent_element):
+        if parent_element.left_top is None or parent_element.right_bottom is None:
+            return False
+        if self.left_top is None or self.right_bottom is None:
+            return False
+        if self.left_top[0] >= parent_element.left_top[0] and self.left_top[1] >= parent_element.left_top[1] and self.right_bottom[0] <= parent_element.right_bottom[0] and self.right_bottom[1] <= parent_element.right_bottom[1]:
+            return True
+        return False
 
 # function that export to xls
 def export_to_xls(outputfile,components,relations):
@@ -339,7 +349,30 @@ def check_relations(components, relations,i):
                     print(f'{i}. Для связи "{rel.c4Description}" между "{components[rel.source].c4Name}" и "{components[rel.target].c4Name}" не указаны возвращаемые данные')
                     i = i + 1
     return i
-    
+
+# function that fills parent id
+def fill_parent_id(components):
+    result = {}
+    for comp in components.values():
+        for parent in components.values():
+            if comp != parent:
+                if comp.is_element_inside(parent):
+                    comp.parent_id = parent.id
+        result[comp.id] = comp
+    return result
+
+# function that checks inpound and outbound relations
+# if comonent is habe parent component, than parent must have inbound or outbound relation
+def check_inbound_outbound_relations(comp,components,relations):
+    if not [x for x in relations if x.target == comp.id or x.source == comp.id]:
+        if comp.parent_id is not None:
+            return check_inbound_outbound_relations(components[comp.parent_id],components,relations)
+        else:
+            return False
+    else:
+        return True
+
+
 # function that checks components
 def check_components(components, relations, i):
     for comp in components.values():
@@ -351,12 +384,14 @@ def check_components(components, relations, i):
             if(comp.c4Type != 'Software System') and (comp.c4Type != 'Person') and (comp.c4Type != 'SystemScopeBoundary') and (comp.c4Type != 'ContainerScopeBoundary'):
                 print(f'{i}. {comp.c4Type} "{comp.c4Name}" не указана технология')
                 i = i + 1
-        if not [x for x in relations if x.target == comp.id or x.source == comp.id]:
-            if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person' and comp.c4Type != 'ContainerScopeBoundary':
+        
+        if comp.c4Type != 'SystemScopeBoundary' and comp.c4Type != 'Person' and comp.c4Type != 'ContainerScopeBoundary':
+            if check_inbound_outbound_relations(comp,components,relations) is False:
                 print(f'{i}. {comp.c4Type} "{comp.c4Name}" не имеет входящих и исходящих связей')
                 i = i + 1
     return i
 
+# main function
 def main(argv):
     # parse args
     inputfile = ''
@@ -383,6 +418,9 @@ def main(argv):
 
     # load from xml (.drawio)
     components, relations , broken_relations = load_from_xml(inputfile)
+
+    #fill parent relations
+    components = fill_parent_id(components)
 
     # fix broken relations
     relations = fix_broken_relations(components, relations, broken_relations)
