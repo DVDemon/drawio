@@ -345,15 +345,16 @@ def check_relations(components, relations,i,check_data):
 
     def relation_name(relation):
         if(len(relation.c4Description.rstrip())>0):
-            return '"'+relation.c4Description+'" '
+            # return relation.c4Description with replaced newlines
+            return relation.c4Description.replace('\n',' ')
         else:
             return ''
 
     for rel in relations:
         if rel.source not in components:
-            print(f"Для связи {rel.c4Description} отсутствует стартовый компонент")
+            print(f"Для связи {relation_name(rel)} отсутствует стартовый компонент")
         if rel.target not in components:
-            print(f"Для связи {rel.c4Description} отсутствует конечный компонент")
+            print(f"Для связи {relation_name(rel)} отсутствует конечный компонент")
         if 'c4Technology' in rel.__dict__:
             if rel.c4Technology=='' and components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
                 print(f'{i}. Для связи {relation_name(rel)}между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указана технология')
