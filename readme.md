@@ -26,8 +26,12 @@
 
 # Использование
 
-drawio_parser.py -i `<inputfile>` -o `<outputfile>`
+drawio_parser.py -i `<inputfile>` -o `<outputfile> -d -s`
 
 inputfile - имя файла в формате drawio
 
 outputfile - имя файла в формате xlsx в который будут записаны объекты и связи
+
+d - проверка синтаксиса входных и выходных данных
+
+s - печать статистики

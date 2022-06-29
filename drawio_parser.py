@@ -153,7 +153,7 @@ def get_coordinates(collection):
     return coordinates
 
 # function that load from xml (.drawio)
-def load_from_xml(filename):
+def load_from_xml(filename,print_statistics):
     xml = open(filename).read()
     components = {}
     relations = []
@@ -269,9 +269,11 @@ def load_from_xml(filename):
                 if m:
                     parents[0].c4Technology = m.group(1)
 
-    print(f"Components:{len(components)}")                
-    print(f"Relations: {len(relations)}")
-    print(f"Broken Relations: {len(broken_relations)}")
+    if print_statistics==True:
+        print('Number of components: ' + str(len(components)))
+        print('Number of relations: ' + str(len(relations)))
+        print('Number of broken relations: ' + str(len(broken_relations)))
+
 
     return components, relations ,broken_relations
 
@@ -314,9 +316,7 @@ def fix_broken_relations(components,relations,broken_relations):
             i = i + 1
             #print(broken_relation.__dict__)
             relations.append(Relation(broken_relation.source,broken_relation.target,broken_relation.__dict__))
-
-                
-    print(f"Fixed broken relations: {i}")
+            
     return relations
 
 # function that print broken relations
@@ -336,7 +336,7 @@ def print_broken_relations(broken_relations,i):
     return i
 
 # function that check relations
-def check_relations(components, relations,i):
+def check_relations(components, relations,i,check_data):
     def component_name(component):
         if len(component.c4Name)!=0:
             return component.c4Name
@@ -358,7 +358,7 @@ def check_relations(components, relations,i):
             if rel.c4Technology=='' and components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
                 print(f'{i}. Для связи {relation_name(rel)}между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указана технология')
                 i = i + 1
-        if 'c4Description' in rel.__dict__:
+        if 'c4Description' in rel.__dict__ and check_data:
             m = re.search(r'\((.*)\)', rel.c4Description)
             if m is None:
                 if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
@@ -417,9 +417,12 @@ def main(argv):
     # parse args
     inputfile = ''
     outputfile = ''
-    helpstring = 'drawio_parser.py -i <inputfile> -o <outputfile>'
+    check_data = False
+    print_statistics = False
+
+    helpstring = 'drawio_parser.py -i <inputfile> -o <outputfile> -d -s'
     try:
-        opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
+        opts, args = getopt.getopt(argv,"sdhi:o:",["ifile=","ofile="])
     except getopt.GetoptError:
         print (helpstring)
         sys.exit(2)
@@ -431,14 +434,18 @@ def main(argv):
             inputfile = arg
         elif opt in ("-o", "--ofile"):
             outputfile = arg
+        elif opt == '-d':
+            check_data = True
+        elif opt == '-s':
+            print_statistics = True
 
-    if len(inputfile) == 0 or len(outputfile) == 0:
+    if len(inputfile) == 0:
         print (helpstring)
         sys.exit()
 
 
     # load from xml (.drawio)
-    components, relations , broken_relations = load_from_xml(inputfile)
+    components, relations , broken_relations = load_from_xml(inputfile,print_statistics)
 
     # fill parent relations
     components = fill_parent_id(components)
@@ -451,11 +458,13 @@ def main(argv):
     # make checks
     i = 1
     #i = print_broken_relations(broken_relations,i)
-    i = check_relations(components, relations, i)
+    i = check_relations(components, relations, i,check_data)
     i = check_components(components, relations, i)
 
+
     # export to xls
-    export_to_xls(outputfile,components,relations)
+    if len(outputfile) != 0:
+        export_to_xls(outputfile,components,relations)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
