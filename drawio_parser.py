@@ -339,9 +339,9 @@ def print_broken_relations(broken_relations,i):
 def check_relations(components, relations,i,check_data):
     def component_name(component):
         if len(component.c4Name)!=0:
-            return component.c4Name
+            return component.c4Name.replace('\n',' ')
         else:
-            return component.c4Type+":"+component.c4Description
+            return component.c4Type+":"+component.c4Description.replace('\n',' ')
 
     def relation_name(relation):
         if(len(relation.c4Description.rstrip())>0):
@@ -352,23 +352,23 @@ def check_relations(components, relations,i,check_data):
 
     for rel in relations:
         if rel.source not in components:
-            print(f"Для связи {relation_name(rel)} отсутствует стартовый компонент")
+            print(f'Для связи "{relation_name(rel)}" отсутствует стартовый компонент')
         if rel.target not in components:
-            print(f"Для связи {relation_name(rel)} отсутствует конечный компонент")
+            print(f'Для связи "{relation_name(rel)}" отсутствует конечный компонент')
         if 'c4Technology' in rel.__dict__:
             if rel.c4Technology=='' and components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
-                print(f'{i}. Для связи {relation_name(rel)}между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указана технология')
+                print(f'{i}. Для связи "{relation_name(rel)}" между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указана технология')
                 i = i + 1
         if 'c4Description' in rel.__dict__ and check_data:
             m = re.search(r'\((.*)\)', rel.c4Description)
             if m is None:
                 if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
-                    print(f'{i}. Для связи {relation_name(rel)}между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указаны входные данные')
+                    print(f'{i}. Для связи "{relation_name(rel)}" между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указаны входные данные')
                     i = i + 1
             m = re.search(r'\):(.*)', rel.c4Description)
             if m is None:
                 if components[rel.source].c4Type != 'Person' and components[rel.target].c4Type != 'Person':
-                    print(f'{i}. Для связи {relation_name(rel)}между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указаны возвращаемые данные')
+                    print(f'{i}. Для связи "{relation_name(rel)}" между "{component_name(components[rel.source])}" и "{component_name(components[rel.target])}" не указаны возвращаемые данные')
                     i = i + 1
     return i
 
