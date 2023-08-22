@@ -196,6 +196,18 @@ def recurse_walk(components,relations,file,component,deep,names,visible_names,du
     elif deep == 3:
         file.write('            '+var_name+' = component "'+name +'" {\n')
 
+    if 'c4Description' in component.__dict__:
+        if component.c4Description != None:
+            for i in range(deep):
+                file.write('    ')
+            file.write('description "'+component.c4Description.replace("\n"," ")+'"\n')
+
+    if 'c4Technology' in component.__dict__:
+        if component.c4Technology != None:
+            for i in range(deep):
+                file.write('    ')
+            file.write('technology "'+component.c4Technology.replace("\n"," ")+'"\n')
+
     for comp in components.values():
         if comp.parent_id==id:
             recurse_walk(components,relations,file,comp,deep+1,names,visible_names,dubles)
@@ -265,8 +277,8 @@ def export_to_dsl(components,relations):
                     file.write("    }\n")
 
 
-
-        file.write("}\n")
+        file.write("    themes default\n")
+        file.write("    }\n")
         file.write("}\n")
 
 # helper function to get coordinates

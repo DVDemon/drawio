@@ -6,3 +6,4 @@ diagrams/*
 *.xml
 .DS_Store
 .gitignore
+*.dsl
