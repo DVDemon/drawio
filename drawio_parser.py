@@ -7,6 +7,7 @@ import base64
 import zlib
 from urllib.parse import quote, unquote
 
+
 # args
 import sys, getopt
 
@@ -140,6 +141,133 @@ def export_to_xls(outputfile,components,relations):
         j = j + 1
 
     workbook.close()
+
+# function that export to Structurizr DSL
+
+symbols = [u"абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ abvgdeejzijklmnoprstufhzcss_y_euaABVGDEEJZIJKLMNOPRSTUFHZCSS_Y_EUA_",
+           u"abvgdeejzijklmnoprstufhzcss_y_euaABVGDEEJZIJKLMNOPRSTUFHZCSS_Y_EUA_abvgdeejzijklmnoprstufhzcss_y_euaABVGDEEJZIJKLMNOPRSTUFHZCSS_Y_EUA_"]
+
+def create_var_name(name,dubles,deep):
+    prefix = 'var'
+    if deep == 1 : prefix = 'system_'
+    elif deep == 2: prefix = 'container_'
+    elif deep == 3: prefix = 'component_'
+
+    #name = prefix+str(len(names))
+
+    res = ""
+    src = name.lower()
+    for c in src:
+        for i in range(len(symbols[0])):
+            if c == symbols[0][i]:
+                res += symbols[1][i]
+                break
+    
+    if res in dubles:
+        new_res = res+str(len(dubles[res]))
+        dubles[res].append(res)
+        res = new_res
+    else:
+        dubles[res] = [res]
+
+    return res
+
+def recurse_walk(components,relations,file,component,deep,names,visible_names,dubles):
+    child_count = 0
+
+    id   = component.id
+    name = component.c4Name.replace("\n"," ")
+    if len(name)==0:
+        name = component.c4Type.replace("\n"," ")
+
+    if name in visible_names:
+        new_name = name + '_'+str(len(visible_names[name]))
+        visible_names[name].append(new_name)
+        name = new_name
+    else:
+        visible_names[name] = list()
+
+    var_name = create_var_name(name,dubles,deep)
+    
+    if deep == 1:
+        file.write('    '+var_name+' = softwareSystem "'+name +'" {\n')
+    elif deep == 2:
+        file.write('        '+var_name+' = container "'+name +'" {\n')
+    elif deep == 3:
+        file.write('            '+var_name+' = component "'+name +'" {\n')
+
+    for comp in components.values():
+        if comp.parent_id==id:
+            recurse_walk(components,relations,file,comp,deep+1,names,visible_names,dubles)
+            child_count += 1
+
+    names.append([var_name,deep,child_count,id])
+
+    if deep == 1:
+        file.write('    }\n')
+    elif deep == 2:
+        file.write('        }\n')
+    elif deep == 3:
+        file.write('            }\n')
+
+
+
+def export_to_dsl(components,relations):
+    
+    with open("workspace.dsl","w") as file:
+        file.write("workspace {\n")
+        file.write("model {\n")
+        names = list()
+        visible_names = dict()
+
+        i = 1
+        dubles = dict()
+        for comp in components.values():
+            if 'parent_id' in comp.__dict__.keys() and comp.parent_id!=None:
+                # do nothing
+                i = i+1  
+            else:
+                recurse_walk(components,relations,file,comp,1,names,visible_names,dubles)
+
+        elements = dict()
+        for n in names:
+            elements[n[3]] = n
+
+        rel_names = dict()
+        for rel in relations:
+            rel_name = rel.c4Description.replace("\n"," ")
+            if(len(rel_name) == 0):
+                rel_name = 'Вызов'
+            rel_technology = rel.c4Technology.replace("\n"," ")
+            if(len(rel_technology) == 0):
+                rel_technology = 'unknown'
+            file.write("    "+elements[rel.source][0]+" -> "+elements[rel.target][0]+" \""+rel_name+"\" \""+rel_technology+"\"\n")
+
+        file.write("}\n")
+        file.write("views {\n")
+
+        file.write("    systemLandscape {\n")
+        file.write("        include *\n")
+        file.write("        autoLayout\n")
+        file.write("    }\n")
+
+        for n in names:
+            if n[2]>0 : # have childs
+                if n[1] == 1:
+                    file.write("    container "+n[0]+" {\n")
+                    file.write("        include *\n")
+                    file.write("        autoLayout\n")
+                    file.write("    }\n")
+                elif n[1] == 2:
+                    file.write("    component "+n[0]+" {\n")
+                    file.write("        include *\n")
+                    file.write("        autoLayout\n")
+                    file.write("    }\n")
+
+
+
+        file.write("}\n")
+        file.write("}\n")
 
 # helper function to get coordinates
 def get_coordinates(collection):
@@ -466,6 +594,8 @@ def main(argv):
     # export to xls
     if len(outputfile) != 0:
         export_to_xls(outputfile,components,relations)
+    
+    export_to_dsl(components,relations)
 
 if __name__ == "__main__":
    main(sys.argv[1:])

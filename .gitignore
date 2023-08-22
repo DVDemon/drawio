@@ -4,3 +4,5 @@ diagrams/*
 *.xls
 *.drawio
 *.xml
+.DS_Store
+.gitignore
