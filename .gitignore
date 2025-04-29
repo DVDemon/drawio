@@ -7,3 +7,8 @@ diagrams/*
 .DS_Store
 .gitignore
 *.dsl
+.structurizr/*
+*.yml
+*.png
+.gitignore
+.DS_Store

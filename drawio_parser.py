@@ -53,6 +53,8 @@ class Object:
                 self.id = attributes[key]
             if key.startswith('c4'):
                 setattr(self, key, attributes[key])
+            if key.lower()=='cmdb':
+                setattr(self, 'cmdb', attributes[key])
 
     def print(self):
         for key in self.__dict__.keys():
@@ -188,9 +190,21 @@ def recurse_walk(components,relations,file,component,deep,names,visible_names,du
         visible_names[name] = list()
 
     var_name = create_var_name(name,dubles,deep)
-    
+    var_type = 'system'
+
+    if 'c4Type' in component.__dict__:
+        if component.c4Type != None:
+            var_type = component.c4Type
+
     if deep == 1:
-        file.write('    '+var_name+' = softwareSystem "'+name +'" {\n')
+        if var_type == 'Person':
+            file.write('    '+var_name+' = Person "'+name +'" {\n')
+        else: 
+            file.write('    '+var_name+' = softwareSystem "'+name +'" {\n')
+            if hasattr(component,'cmdb'):
+                file.write("        properties {\n")
+                file.write(f"           cmdb {component.cmdb}\n")
+                file.write("        }\n")
     elif deep == 2:
         file.write('        '+var_name+' = container "'+name +'" {\n')
     elif deep == 3:
@@ -368,6 +382,7 @@ def load_from_xml(filename,print_statistics):
                 else:
                     # parse c4 components
                     comp = Element(d.attrib)
+
                     mx_cell = d.find('mxCell')
                     if(mx_cell is not None):
                         geom = mx_cell.find('mxGeometry')
